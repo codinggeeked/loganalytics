@@ -137,6 +137,14 @@ class LogAnalyzer:
             locations='iso_alpha',
             locationmode='ISO-3',
             color='count',
+            color_continuous_scale=px.colors.sequential.Plasma,
+            projection='natural earth',
+            scope='world',
+            labels={'count': 'Traffic'},
+            template='plotly_dark',
+            height=600,
+            width=900,
+            hover_data={'iso_alpha': False},
             hover_name='country',
             title=f'Top {top_n} Countries by Traffic'
         )
