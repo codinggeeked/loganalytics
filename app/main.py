@@ -58,17 +58,23 @@ def display_geo_analysis(analyzer: LogAnalyzer) -> None:
     """Render geographical analysis section."""
     logger.info("Displaying geo analysis")
     st.header("Geographical Distribution")
-    geo_fig = analyzer.generate_geo_plot()
-    
-    if geo_fig:
-        st.plotly_chart(geo_fig, use_container_width=True)
-    else:
-        logger.warning("No geographical data available")
-        st.warning("No geographical data available")
-        st.dataframe(
-            analyzer.df['country'].value_counts(),
-            column_config={"value": "Count"}
-        )
+
+    try:
+        geo_fig = analyzer.generate_geo_plot()
+
+        if geo_fig:
+            st.plotly_chart(geo_fig, use_container_width=True)
+        else:
+            logger.warning("No geographical data available")
+            st.warning("No geographical data available")
+            st.dataframe(
+                analyzer.df['country'].value_counts(),
+                column_config={"value": "Count"}
+            )
+    except Exception as e:
+        logger.error(f"Error in geographical analysis: {str(e)}")
+        st.error(f"Analysis failed: {str(e)}")
+
 
 def display_temporal_analysis(analyzer: LogAnalyzer) -> None:
     """Render time-based patterns."""
