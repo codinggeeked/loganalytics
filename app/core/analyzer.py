@@ -17,11 +17,12 @@ class LogAnalyzer:
     REQUIRED_COLS = ['time', 'ip', 'method', 'resource', 'status']
     CONVERSION_PATTERNS = r'demo|promo|job|schedule'
     COUNTRY_MAP = {
-        (0, 50): 'US',
-        (50, 100): 'UK',
-        (100, 150): 'IN',
-        (150, 200): 'CA'
-    }
+    (0, 50): 'US',
+    (50, 100): 'UK',
+    (100, 150): 'IN',
+    (150, 200): 'CA',
+    (200, 256): 'BW'  
+}
 
     def __init__(self, df: pd.DataFrame):
         self._geoip_reader = None
