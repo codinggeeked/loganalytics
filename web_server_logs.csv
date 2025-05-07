@@ -1,0 +1,11 @@
+time,ip,method,resource,status
+02:49:36,128.1.0.0,GET,/index.html,200
+03:01:07,155.55.0.24,GET,/jobs/engineer,200
+01:20:04,157.20.5.0,GET,/scheduledemo.php,200
+03:54:36,157.20.20.10,GET,/promo-event,200
+04:17:04,157.20.30.10,GET,/ai-assistant,200
+05:22:18,128.1.0.5,GET,/jobs/designer,200
+06:45:33,155.55.0.25,GET,/index.html,304
+07:12:47,157.20.5.1,GET,/scheduledemo.php,200
+08:31:09,157.20.20.11,GET,/products,200
+09:58:22,157.20.30.12,GET,/ai-assistant/start,200
