@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
-from analyzer import LogAnalyzer
+import analyzer
+import streamlit as st
 import plotly.express as px
 import numpy as np
 
