@@ -1,153 +1,107 @@
 import streamlit as st
 import pandas as pd
-import logging
-from pathlib import Path
-from core.analyzer import LogAnalyzer
+from analyzer import LogAnalyzer
+import plotly.express as px
+import numpy as np
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+# --- Streamlit UI ---
+st.set_page_config(page_title="Web Log Analysis Dashboard", layout="wide")
 
-# Configure page
-st.set_page_config(
-    page_title="Log Analytics",
-    page_icon="📊",
-    layout="wide"
-)
+st.title("🌍 Web Server Log Analysis")
+st.markdown("Analyze web traffic and conversions to evaluate sales strategies.")
 
-def validate_file(uploaded_file) -> pd.DataFrame:
-    """Validate and parse uploaded log file."""
-    try:
-        if uploaded_file.name.endswith('.csv'):
-            logger.info("Parsing CSV file")
-            return pd.read_csv(uploaded_file)
-        else:  # Raw log format
-            logger.info("Parsing raw log file")
-            return pd.read_csv(
-                uploaded_file,
-                sep=' ',
-                header=None,
-                names=['time', 'ip', 'method', 'resource', 'status']
-            )
-    except Exception as e:
-        logger.error(f"File parsing failed: {str(e)}")
-        st.error(f"File parsing failed: {str(e)}")
-        st.stop()
+uploaded_file = st.file_uploader("Upload Web Log CSV File", type=["csv"])
 
-def display_metrics(analyzer: LogAnalyzer) -> None:
-    """Render key metrics dashboard."""
-    logger.info("Displaying metrics")
-    col1, col2, col3 = st.columns(3)
-    
-    # Total requests
-    total = len(analyzer.df)
-    col1.metric("Total Requests", f"{total:,}")
-    
-    # Conversion rate
-    conv_rate, _ = analyzer.get_conversion_metrics()
-    col2.metric("Conversion Rate", f"{conv_rate:.1%}")
-    
-    # Peak hour
-    peak_hour = analyzer.df['hour'].value_counts().idxmax()
-    col3.metric("Peak Hour", f"{peak_hour}:00 - {peak_hour+1}:00")
+if uploaded_file:
+    df = pd.read_csv(uploaded_file)
+    analyzer = LogAnalyzer(df)
 
-def display_geo_analysis(analyzer: LogAnalyzer) -> None:
-    """Render geographical analysis section."""
-    logger.info("Displaying geo analysis")
-    st.header("Geographical Distribution")
+    st.success("Log file loaded and processed successfully.")
 
-    try:
-        geo_fig = analyzer.generate_geo_plot()
+    # ---- Key Metrics ----
+    st.header("🔍 Summary Metrics")
+    col1, col2 = st.columns(2)
+    with col1:
+        overall_conv, by_method = analyzer.get_conversion_metrics()
+        st.metric("Overall Conversion Rate", f"{overall_conv * 100:.2f}%")
+    with col2:
+        st.write("**Conversion Rate by Method:**")
+        st.dataframe(by_method.reset_index().rename(columns={'method': 'Method', 'is_conversion': 'Conversion Rate (%)'}).assign(**{'Conversion Rate (%)': lambda df: df['Conversion Rate (%)'] * 100}))
 
-        if geo_fig:
-            st.plotly_chart(geo_fig, use_container_width=True)
-        else:
-            logger.warning("No geographical data available")
-            st.warning("No geographical data available")
-            st.dataframe(
-                analyzer.df['country'].value_counts(),
-                column_config={"value": "Count"}
-            )
-    except Exception as e:
-        logger.error(f"Error in geographical analysis: {str(e)}")
-        st.error(f"Analysis failed: {str(e)}")
+    # ---- Country Choropleth Map ----
+    st.header("🌐 Traffic by Country")
+    fig_map = analyzer.generate_geo_plot()
+    if fig_map:
+        st.plotly_chart(fig_map, use_container_width=True)
+    else:
+        st.warning("Geo data not available for choropleth map.")
 
-
-def display_temporal_analysis(analyzer: LogAnalyzer) -> None:
-    """Render time-based patterns."""
-    logger.info("Displaying temporal analysis")
-    st.header("Temporal Patterns")
-    
-    tab1, tab2 = st.tabs(["Hourly", "Daily"])
-    
-    with tab1:
-        st.bar_chart(analyzer.df['hour'].value_counts().sort_index())
-    
-    with tab2:
-        st.bar_chart(
-            analyzer.df['day_of_week'].value_counts().reindex([
-                'Monday', 'Tuesday', 'Wednesday',
-                'Thursday', 'Friday', 'Saturday', 'Sunday'
-            ])
-        )
-
-def display_conversions(analyzer: LogAnalyzer) -> None:
-    """Render conversion analysis."""
-    logger.info("Displaying conversion analysis")
-    st.header("Conversion Analysis")
-    _, by_type = analyzer.get_conversion_metrics()
-    
-    st.subheader("By Request Type")
-    st.bar_chart(by_type)
-    
-    st.subheader("Detailed Records")
-    st.dataframe(
-        analyzer.df[analyzer.df['is_conversion']],
-        hide_index=True,
-        use_container_width=True
+    # ---- Conversions by Hour ----
+    st.header("📊 Conversion Activity Over the Day")
+    conv_by_hour = analyzer.df.groupby('hour')['is_conversion'].mean().reset_index()
+    fig_hour = px.bar(
+        conv_by_hour,
+        x='hour',
+        y='is_conversion',
+        labels={'hour': 'Hour of Day', 'is_conversion': 'Conversion Rate'},
+        title="Conversions by Hour",
+        color='is_conversion',
+        color_continuous_scale='Viridis',
     )
+    st.plotly_chart(fig_hour, use_container_width=True)
 
-def main():
-    """Main application entry point."""
-    logger.info("Starting application")
-    st.title("Web Server Log Analytics Dashboard")
-    
-    # File upload
-    uploaded_file = st.file_uploader(
-        "Upload server logs",
-        type=['csv', 'log'],
-        accept_multiple_files=False
+    # ---- Conversion by Day of Week ----
+    st.header("📅 Conversions by Day of Week")
+    conv_by_day = analyzer.df.groupby('day_of_week')['is_conversion'].mean().reindex(
+        ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    ).reset_index()
+    fig_day = px.bar(
+        conv_by_day,
+        x='day_of_week',
+        y='is_conversion',
+        title="Conversions by Day of Week",
+        labels={'day_of_week': 'Day', 'is_conversion': 'Conversion Rate'},
+        color='is_conversion',
+        color_continuous_scale='Plasma',
     )
-    
-    if not uploaded_file:
-        logger.info("Waiting for file upload")
-        st.info("Please upload a log file to begin analysis")
-        return
-    
-    # Process file
-    with st.spinner("Analyzing logs..."):
-        try:
-            df = validate_file(uploaded_file)
-            analyzer = LogAnalyzer(df)
-            
-            # Validate analyzer initialization
-            if not hasattr(analyzer, 'geoip_reader'):
-                logger.error("Analyzer initialization failed - missing geoip_reader")
-                st.error("Analyzer initialization failed - check logs")
-                return
-            
-            # Dashboard sections
-            display_metrics(analyzer)
-            display_geo_analysis(analyzer)
-            display_temporal_analysis(analyzer)
-            display_conversions(analyzer)
-            
-        except Exception as e:
-            logger.exception("Analysis failed")
-            st.error(f"Analysis failed: {str(e)}")
+    st.plotly_chart(fig_day, use_container_width=True)
 
-if __name__ == "__main__":
-    main()
+    # ---- Status Code Pie Chart ----
+    st.header("📎 HTTP Status Codes Distribution")
+    status_counts = analyzer.df['status'].value_counts().reset_index()
+    status_counts.columns = ['status', 'count']
+    fig_status = px.pie(
+        status_counts,
+        names='status',
+        values='count',
+        title='Status Code Distribution',
+        hole=0.4
+    )
+    st.plotly_chart(fig_status, use_container_width=True)
+
+    # ---- Conversion Resource Breakdown ----
+    st.header("🔗 Most Requested Conversion Resources")
+    conv_resources = (
+        analyzer.df[analyzer.df['is_conversion']]
+        .groupby('resource')
+        .size()
+        .sort_values(ascending=False)
+        .reset_index(name='count')
+        .head(10)
+    )
+    fig_resources = px.bar(
+        conv_resources,
+        x='resource',
+        y='count',
+        title='Top Conversion Resources',
+        color='count',
+        labels={'resource': 'Resource', 'count': 'Hits'}
+    )
+    st.plotly_chart(fig_resources, use_container_width=True)
+
+    # ---- Basic Descriptive Stats ----
+    st.header("📈 Descriptive Statistics")
+    st.write(analyzer.df.describe(include='all'))
+
+else:
+    st.info("Please upload a valid CSV log file to start the analysis.")
