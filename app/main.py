@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import analyzer
-import streamlit as st
 import plotly.express as px
 import numpy as np
 
@@ -15,7 +14,7 @@ uploaded_file = st.file_uploader("Upload Web Log CSV File", type=["csv"])
 
 if uploaded_file:
     df = pd.read_csv(uploaded_file)
-    analyzer = LogAnalyzer(df)
+    analyzer_obj = analyzer.LogAnalyzer(df)  # <-- FIXED: Instantiate the class correctly
 
     st.success("Log file loaded and processed successfully.")
 
@@ -23,15 +22,19 @@ if uploaded_file:
     st.header("🔍 Summary Metrics")
     col1, col2 = st.columns(2)
     with col1:
-        overall_conv, by_method = analyzer.get_conversion_metrics()
+        overall_conv, by_method = analyzer_obj.get_conversion_metrics()
         st.metric("Overall Conversion Rate", f"{overall_conv * 100:.2f}%")
     with col2:
         st.write("**Conversion Rate by Method:**")
-        st.dataframe(by_method.reset_index().rename(columns={'method': 'Method', 'is_conversion': 'Conversion Rate (%)'}).assign(**{'Conversion Rate (%)': lambda df: df['Conversion Rate (%)'] * 100}))
+        st.dataframe(
+            by_method.reset_index()
+            .rename(columns={'method': 'Method', 'is_conversion': 'Conversion Rate (%)'})
+            .assign(**{'Conversion Rate (%)': lambda df: df['Conversion Rate (%)'] * 100})
+        )
 
     # ---- Country Choropleth Map ----
     st.header("🌐 Traffic by Country")
-    fig_map = analyzer.generate_geo_plot()
+    fig_map = analyzer_obj.generate_geo_plot()
     if fig_map:
         st.plotly_chart(fig_map, use_container_width=True)
     else:
@@ -39,7 +42,7 @@ if uploaded_file:
 
     # ---- Conversions by Hour ----
     st.header("📊 Conversion Activity Over the Day")
-    conv_by_hour = analyzer.df.groupby('hour')['is_conversion'].mean().reset_index()
+    conv_by_hour = analyzer_obj.df.groupby('hour')['is_conversion'].mean().reset_index()
     fig_hour = px.bar(
         conv_by_hour,
         x='hour',
@@ -53,7 +56,7 @@ if uploaded_file:
 
     # ---- Conversion by Day of Week ----
     st.header("📅 Conversions by Day of Week")
-    conv_by_day = analyzer.df.groupby('day_of_week')['is_conversion'].mean().reindex(
+    conv_by_day = analyzer_obj.df.groupby('day_of_week')['is_conversion'].mean().reindex(
         ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     ).reset_index()
     fig_day = px.bar(
@@ -69,7 +72,7 @@ if uploaded_file:
 
     # ---- Status Code Pie Chart ----
     st.header("📎 HTTP Status Codes Distribution")
-    status_counts = analyzer.df['status'].value_counts().reset_index()
+    status_counts = analyzer_obj.df['status'].value_counts().reset_index()
     status_counts.columns = ['status', 'count']
     fig_status = px.pie(
         status_counts,
@@ -83,7 +86,7 @@ if uploaded_file:
     # ---- Conversion Resource Breakdown ----
     st.header("🔗 Most Requested Conversion Resources")
     conv_resources = (
-        analyzer.df[analyzer.df['is_conversion']]
+        analyzer_obj.df[analyzer_obj.df['is_conversion']]
         .groupby('resource')
         .size()
         .sort_values(ascending=False)
@@ -102,7 +105,7 @@ if uploaded_file:
 
     # ---- Basic Descriptive Stats ----
     st.header("📈 Descriptive Statistics")
-    st.write(analyzer.df.describe(include='all'))
+    st.write(analyzer_obj.df.describe(include='all'))
 
 else:
     st.info("Please upload a valid CSV log file to start the analysis.")
